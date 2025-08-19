@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ro" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <title>Simulare: corp pe plan înclinat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* ========= Design system (Light/Dark) ========= */
+    :root{
+      --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --muted:#475569; --brand:#5c0a0a;
+      --ok:#059669; --warn:#d97706; --bad:#dc2626; --border:#e5e7eb; --chip:#eee3d3; --chip-ink:#5c0a0a;
+      --canvas:#ffffff; --shadow:0 10px 30px rgba(2,6,23,.08);
+    }
+    [data-theme="dark"]{
+      --bg:#130e0a; --card:#130e0a; --ink:#fffff0; --muted:#fffff0; --brand:#967c5c;
+      --ok:#34d399; --warn:#f59e0b; --bad:#f87171; --border:#777770; --chip:#111827; --chip-ink:#ff4901;
+      --canvas:#120a0a; --shadow:0 10px 30px rgba(0,0,0,.55);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Bahnschrift, -apple-system, Segoe UI, Roboto, Inter, Arial}
+
+    header{padding:18px 20px; position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(6px)}
+    .titlebar{display:flex; align-items:center; justify-content:space-between; gap:12px}
+    h1{margin:0 0 4px;font-size:22px;letter-spacing:.2px}
+    .subtitle{color:var(--muted); font-size:13px}
+
+    .wrap{display:grid;grid-template-columns: minmax(300px,360px) 1fr; gap:16px;align-items:start;padding:0 16px 24px; max-width:1400px; margin:0 auto}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+    .pad{padding:14px}
+
+    .controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+    input[type=number]{padding:10px 3px;border-radius:12px;border:1px solid var(--border); background:transparent; color:var(--ink)}
+    input[type=number]:focus{outline:2px solid color-mix(in oklab, var(--brand) 40%, transparent)}
+
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+    button{padding:9px 12px;border:none;border-radius:12px;background:var(--brand);color:#fff;cursor:pointer; box-shadow:var(--shadow); font-weight:600}
+    button.ghost{background:color-mix(in oklab,var(--card),#0000 20%);color:var(--ink); border:1px solid var(--border)}
+    button.toggle{display:inline-flex; align-items:center; gap:8px}
+
+    canvas{width:100%;height:auto;display:block;border-radius:14px;border:1px solid var(--border);background:var(--canvas)}
+
+    .kv{display:grid;grid-template-columns:180px 1fr;gap:6px;font-size:12px}
+    .kv b{font-weight:600;color:var(--ink)}
+    .tag{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--chip);color:var(--chip-ink);font-size:12px; border:1px solid var(--border)}
+    .mono{font-family: Bahnschrift, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+    .dim{color:var(--muted)}
+
+    hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+
+    .toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .spacer{flex:1}
+    .switch{position:relative; width:48px; height:28px; background:color-mix(in oklab, var(--brand) 30%, #0000); border-radius:999px; border:1px solid var(--border)}
+    .knob{position:absolute; top:2px; left:2px; width:24px; height:24px; background:#fff; border-radius:50%; transition:transform .2s ease}
+    [data-theme="dark"] .knob{transform:translateX(20px)}
+  </style>
+</head>
+<body>
+  <header class="card" style="margin:10px 16px 16px">
+    <div class="titlebar">
+      <div>
+        <h1>Simulare: corp pe plan înclinat</h1>
+        <div class="subtitle"> Se simulează căderea liberă unui corp pe un plan înclinat, unde unghiul bazei variază în timp conform legii: α(t) = α₀ − ω·t, cu 0° ≤ α ≤ 90°.
+        </div>
+      </div>
+      <div class="toolbar">
+        <button id="slowBtn" class="ghost toggle" title="Comută slow motion (¼x)">🐢 Slow-mo</button>
+        <button id="speedBtn" class="ghost toggle" title="Reset viteză la 1x">⏩ 1×</button>
+        <div id="themeToggle" class="switch" title="Comută Light/Dark"><div class="knob"></div></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <section class="card pad">
+      <div class="controls">
+        <label>Unghi inițial α₀ (°)
+          <input id="alpha0" type="number" value="60" min="0" max="90" step="1">
+        </label>
+        <label>ω (rad/s)
+          <input id="aValue" type="number" value="1.047" step="0.001" min="0.0001">
+        </label>
+        <label>Coeficient frecare μ
+          <input id="mu" type="number" value="0.57735" step="0.0001" min="0">
+        </label>
+        <label>g (m/s²)
+          <input id="grav" type="number" value="10" step="0.01" min="0">
+        </label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="startBtn">Start</button>
+        <button class="ghost" id="pauseBtn">Pauză</button>
+        <button class="ghost" id="resetBtn">Reset</button>
+        <span id="branchTag" class="tag" title="tipul opririi">—</span>
+      </div>
+      <div class="kv" style="margin-top:12px">
+        <div class="dim">t (s)</div> <div class="mono" id="kv_t">0.000</div>
+        <div class="dim">α (°)</div> <div class="mono" id="kv_alpha">0.00</div>
+        <div class="dim">v (m/s)</div> <div class="mono" id="kv_v">0.0000</div>
+        <div class="dim">a‖ (m/s²)</div> <div class="mono" id="kv_acc">0.0000</div>
+        <div class="dim">s (m)</div> <div class="mono" id="kv_s">0.0000</div>
+      </div>
+      <hr>
+      <div class="kv">
+        <div class="dim">φ = arctan(μ) (°)</div> <div class="mono" id="kv_phi">—</div>
+        <div class="dim">t<sub>plat</sub> = α₀/ω (s)</div> <div class="mono" id="kv_tflat">—</div>
+        <div class="dim">t* (oprire) (s)</div> <div class="mono" id="kv_tstop">—</div>
+        <div class="dim">α* la oprire (°)</div> <div class="mono" id="kv_alphastop">—</div>
+      </div>
+    </section>
+
+    <section class="card pad">
+      <canvas id="simCanvas" width="980" height="520"></canvas>
+      <div class="dim" style="margin-top:10px">
+        <b>Note teoretice:</b>
+        <ul style="margin:6px 0 0 18px; padding:0">
+          <li>a(t) = g[sin(α₀ − ωt) − μ cos(α₀ − ωt)]</li>
+          <li>v(t) = (g/ω)[ cos(α₀ − ωt) + μ sin(α₀ − ωt) − (cosα₀ + μ sinα₀) ]</li>
+          <li>Condiția v(t)=0 ⇔ cos(α₀ − ωt) + μ sin(α₀ − ωt) = cosα₀ + μ sinα₀</li>
+          <li>
+            Rezolvare:
+            <ul style="margin:3px 0 0 7px;">
+              <li>Aducem termenii în stânga: [cos(α₀ − ωt) − cosα₀] + μ[sin(α₀ − ωt) − sinα₀] = 0.</li>
+              <li>Folosim formulele: cosx − cosy = −2 sin((x+y)/2)·sin((x−y)/2), sinx − siny = 2 cos((x+y)/2)·sin((x−y)/2).</li>
+              <li>Cu x = α₀ − ωt, y = α₀ ⇒ se factorizează sin(−ωt/2) ≠ 0 pentru oprirea nontrivială; împărțind la factorul comun rezultă: −sin(α₀ − ωt/2) + μ cos(α₀ − ωt/2) = 0.</li>
+              <li>Împărțim prin cos(α₀ − ωt/2) și obținem: −tan(α₀ − ωt/2) + μ = 0 ⇒ tan(α₀ − ωt/2) = μ.</li>
+              <li>De aici α₀ − ωt/2 = arctan(μ) + kπ ⇒ pentru prima oprire (k=0):<br>
+                <span class="mono">t = 2(α₀ − arctan μ)/ω</span>.</li>
+              <li>Valabil dacă 0 &lt; t ≤ t<sub>plat</sub> ⇒ oprire <b>înainte</b> de a se aplatiza, la α* = 2 arctan μ − α₀.</li>
+            </ul>
+          </li>
+          <li><i>Altfel</i>, după α=0: v<sub>plat</sub> = (g/ω)[1 − (cosα₀ + μ sinα₀)], t₂ = v<sub>plat</sub>/(μ g), t* = t<sub>plat</sub> + t₂.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ===== Utilitare =====
+    const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
+    // ===== Canvas setup =====
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // ===== Elemente UI =====
+    const alpha0Input = document.getElementById('alpha0');
+    const aValueInput = document.getElementById('aValue');
+    const muInput = document.getElementById('mu');
+    const gInput = document.getElementById('grav');
+
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const slowBtn = document.getElementById('slowBtn');
+    const speedBtn = document.getElementById('speedBtn');
+
+    const kv_t = document.getElementById('kv_t');
+    const kv_alpha = document.getElementById('kv_alpha');
+    const kv_v = document.getElementById('kv_v');
+    const kv_acc = document.getElementById('kv_acc');
+    const kv_s = document.getElementById('kv_s');
+    const kv_phi = document.getElementById('kv_phi');
+    const kv_tflat = document.getElementById('kv_tflat');
+    const kv_tstop = document.getElementById('kv_tstop');
+    const kv_alphastop = document.getElementById('kv_alphastop');
+    const branchTag = document.getElementById('branchTag');
+
+    // ===== Parametri desen =====
+    const anchorX = 80, anchorY = 80; // vârful planului
+    const planePxLength = 720;
+    let scale = 60; // px per metru (ajustat dinamic pentru s*)
+
+    // ===== Stare simulare =====
+    let running = false, paused = false, lastTs = null, t = 0;
+    let params, stopInfo;
+    let speedFactor = 1; // 1x implicit
+
+    function readParams(){
+      let alpha0deg = clamp(parseFloat(alpha0Input.value)||0, 0, 90);
+      alpha0Input.value = alpha0deg.toFixed(0);
+      const alpha0 = alpha0deg*Math.PI/180;
+      const aRad = Math.max(1e-9, parseFloat(aValueInput.value)||0);
+      const mu = Math.max(0, parseFloat(muInput.value)||0);
+      const g = Math.max(0, parseFloat(gInput.value)||0);
+      return {alpha0deg, alpha0, aRad, mu, g};
+    }
+
+    // === Cinematică analitică ===
+    function v_var(t, P){
+      const {alpha0, aRad, mu, g} = P;
+      return (g/aRad)*(Math.cos(alpha0 - aRad*t) + mu*Math.sin(alpha0 - aRad*t) - (Math.cos(alpha0) + mu*Math.sin(alpha0)));
+    }
+    function s_var(t, P){
+      const {alpha0, aRad, mu, g} = P;
+      return (g/(aRad*aRad))*(
+        Math.sin(alpha0) - Math.sin(alpha0 - aRad*t) +
+        mu*(Math.cos(alpha0 - aRad*t) - Math.cos(alpha0))
+      ) - (g/aRad)*(Math.cos(alpha0) + mu*Math.sin(alpha0))*t;
+    }
+    function kinematicsAt(t, P){
+      const {alpha0, aRad, mu, g} = P;
+      const tFlat = alpha0/aRad;
+      if(t <= tFlat){
+        const alpha = alpha0 - aRad*t;
+        const acc = g*(Math.sin(alpha) - mu*Math.cos(alpha));
+        const v = v_var(t, P);
+        const s = s_var(t, P);
+        return {alpha, acc, v, s};
+      }else{
+        const alpha = 0;
+        const vFlat = v_var(tFlat, P);
+        const tau = t - tFlat;
+        const acc = - mu * g;
+        const v = vFlat + acc * tau;
+        const s = s_var(tFlat, P) + vFlat * tau + 0.5 * acc * tau * tau;
+        return {alpha, acc, v, s};
+      }
+    }
+
+    function analyticStop(P){
+      const {alpha0, aRad, mu, g} = P;
+      if(aRad <= 0) return {status:'invalid_a'};
+      if(alpha0 <= 0) return {status:'no_motion', phi:Math.atan(mu), tFlat:0, tStop:0, alphaStop:0, sStop:0};
+      const phi = Math.atan(mu);
+      const tFlat = alpha0 / aRad;
+      const acc0 = g*(Math.sin(alpha0) - mu*Math.cos(alpha0));
+      if(acc0 <= 0){
+        // nu pornește
+        return {status:'no_motion', phi, tFlat, tStop:0, alphaStop:alpha0, sStop:0};
+      }
+      // candidat în faza cu α variabil (din demonstrația cu formulele de diferență)
+      const t1 = 2*(alpha0 - phi)/aRad; // poate fi <=0 (ignorat)
+      if(t1 > 0 && t1 <= tFlat + 1e-12){
+        const alphaStop = alpha0 - aRad*t1; // = 2φ − α0
+        const sStop = s_var(t1, P);
+        return {status:'stop_in_variable', phi, tFlat, tStop:t1, alphaStop, sStop};
+      }
+      // Altfel: după aplatizare
+      if(mu === 0){
+        // pe plat cu μ=0 nu se mai oprește
+        const vFlat = v_var(tFlat, P);
+        return {status:'never_stops_on_flat', phi, tFlat, tStop:Infinity, alphaStop:0, sAtFlat: s_var(tFlat,P), vFlat};
+      }
+      const vFlat = v_var(tFlat, P); // = (g/a)(1 − (cosα0 + μ sinα0))
+      const t2 = vFlat / (mu*g);
+      const tStop = tFlat + t2;
+      const sStop = s_var(tFlat, P) + vFlat*t2 - 0.5*mu*g*t2*t2;
+      return {status:'stop_on_flat', phi, tFlat, tStop, alphaStop:0, sStop, vFlat, t2};
+    }
+
+    // ===== Helper pentru desen vectori (săgeți) =====
+    function drawArrow(ctx, x, y, dx, dy, color, label){
+      // dx,dy în pixeli; desenăm linie + cap săgeată; păstrăm stilul curent
+      const headlen = 10; // lungime cap săgeată (px)
+      const angle = Math.atan2(dy, dx);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + dx, y + dy);
+      ctx.stroke();
+
+      // cap săgeată (triunghi)
+      ctx.beginPath();
+      ctx.moveTo(x + dx, y + dy);
+      ctx.lineTo(x + dx - headlen * Math.cos(angle - Math.PI/6),
+                 y + dy - headlen * Math.sin(angle - Math.PI/6));
+      ctx.lineTo(x + dx - headlen * Math.cos(angle + Math.PI/6),
+                 y + dy - headlen * Math.sin(angle + Math.PI/6));
+      ctx.closePath();
+      ctx.fill();
+
+      // etichetă numerică (opțional) - desenăm puțin offset față de cap
+      if(label){
+        const offset = 8;
+        // desenăm text rotit la aceeași orientare (rămânem în contextul curent)
+        ctx.font = '12px Bahnschrift, system-ui, -apple-system';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#111';
+        ctx.fillText(label, x + dx + offset * Math.cos(angle) + 6, y + dy + offset * Math.sin(angle) + 2);
+      }
+      ctx.restore();
+    }
+
+    // ===== Desen =====
+    function drawFrame(state){
+      const {alpha, v, acc, s} = state;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      // Plan
+      const topX = anchorX, topY = anchorY;
+      const baseX = topX + planePxLength*Math.cos(alpha);
+      const baseY = topY + planePxLength*Math.sin(alpha);
+
+      ctx.lineWidth = 4; ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#111';
+      ctx.beginPath(); ctx.moveTo(topX, topY); ctx.lineTo(baseX, baseY); ctx.stroke();
+
+      // Marcaje
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#111';
+      ctx.font = '16px Bahnschrift, system-ui, -apple-system, Segoe UI';
+      ctx.fillText('vârf', topX-26, topY-10);
+      ctx.fillText('bază', baseX-18, baseY+18);
+
+      // Bloc (roșu cu tente verzi – gradient + contur subtil verde)
+      const blockW=30, blockH=20;
+      const maxSvis = planePxLength/scale - 0.01; // păstrează blocul în segment
+      const sVis = Math.min(Math.max(0, s), maxSvis);
+      const bx = topX + (sVis*scale)*Math.cos(alpha);
+      const by = topY + (sVis*scale)*Math.sin(alpha);
+
+      ctx.save();
+      ctx.translate(bx, by); ctx.rotate(alpha);
+      const grad = ctx.createLinearGradient(-blockW/2, -blockH-2, blockW/2, -blockH-2);
+      grad.addColorStop(0, '#b67823'); // roșu
+      grad.addColorStop(1, '#3a020d'); // tentă verde
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = '#b67823'; // contur verde discret
+      ctx.lineWidth = 3;
+      ctx.fillRect(-blockW/2, -blockH-2, blockW, blockH);
+      ctx.strokeRect(-blockW/2, -blockH-2, blockW, blockH);
+
+      // === Vectori (în sistemul blocului — deci rotirea asigură aliniere pe plan) ===
+      // Scala vizuală pentru vectori (px per (m/s) sau px per (m/s^2)), ajustabilă
+      // Am ales o scalare unificată pentru lizibilitate; poți modifica factorul.
+      const vecScale = 18; // px per unitate (reglează dacă v/acc par prea mici/mari)
+      // lungimi în pixeli (pe direcția planului)
+      const lenVpx = v * vecScale;
+      const lenApx = acc * vecScale;
+
+      // culori
+      const colorV = '#2563eb'; // albastru - viteză
+      const colorA = '#dc2626'; // roșu - accelerație
+
+      // desenăm săgețile ancorate deasupra blocului (y = -blockH/2 -> deasupra)
+      drawArrow(ctx, 0, -blockH - 6, lenVpx, 0, colorV, `${v.toFixed(3)} m/s`);
+      drawArrow(ctx, 0, -blockH - 6 + 18, lenApx, 0, colorA, `${acc.toFixed(3)} m/s²`);
+
+      ctx.restore();
+
+      // Legendă (ne-rotită) — colț dreapta-sus canvas
+      const pad = 12;
+      const legendX = canvas.width - 175;
+      const legendY = 7;
+      ctx.save();
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim() || '#fff';
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#ddd';
+      ctx.lineWidth = 1;
+      ctx.fillRect(legendX, legendY, 168, 54);
+      ctx.strokeRect(legendX, legendY, 168, 54);
+      ctx.font = '12px Bahnschrift, system-ui';
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#111';
+      ctx.fillText('Legendă:', legendX + 10, legendY + 16);
+      // v
+      ctx.fillStyle = colorV; ctx.fillRect(legendX + 10, legendY + 22, 14, 6);
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#111';
+      ctx.fillText('v - (viteză paralelă)', legendX + 30, legendY + 27);
+      // a
+      ctx.fillStyle = colorA; ctx.fillRect(legendX + 10, legendY + 36, 14, 6);
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#111';
+      ctx.fillText('a - (accelerație paralelă)', legendX + 30, legendY + 41);
+      ctx.restore();
+
+      // Oprire (etichetă)
+      if(!running){
+        ctx.fillStyle = '#f87171'; ctx.font='14px Bahnschrift, system-ui';
+        ctx.fillText(`Oprit la α≈${(alpha*180/Math.PI).toFixed(2)}°`, 16, 24);
+      }
+    }
+
+    // ===== UI helpers =====
+    function updateSummary(state){
+      const {alpha, v, acc, s} = state;
+      kv_t.textContent = t.toFixed(3);
+      kv_alpha.textContent = (alpha*180/Math.PI).toFixed(2);
+      kv_v.textContent = v.toFixed(4);
+      kv_acc.textContent = acc.toFixed(4);
+      kv_s.textContent = s.toFixed(4);
+    }
+
+    function updateAnalysisPanels(){
+      const {phi, tFlat, tStop, alphaStop, status} = stopInfo;
+      kv_phi.textContent = (phi*180/Math.PI).toFixed(2);
+      kv_tflat.textContent = Number.isFinite(tFlat) ? tFlat.toFixed(4) : '—';
+      kv_tstop.textContent = Number.isFinite(tStop) ? tStop.toFixed(4) : (tStop===Infinity?'∞':'—');
+      kv_alphastop.textContent = Number.isFinite(alphaStop) ? (alphaStop*180/Math.PI).toFixed(2) : '—';
+      const label = status==='stop_in_variable' ? 'Oprire cu α>0' : status==='stop_on_flat' ? 'Oprire pe plat' : status==='no_motion' ? 'Nu pornește' : status==='never_stops_on_flat' ? 'Nu se oprește (μ=0 pe plat)' : '—';
+      branchTag.textContent = label;
+    }
+
+    function autoScaleForStop(){
+      // Ajustăm scala astfel încât s* să încapă pe plan
+      if(!stopInfo || !isFinite(stopInfo.sStop)) return;
+      const sStar = Math.max(0.001, stopInfo.sStop);
+      const pxPerM = Math.min(90, planePxLength / (sStar*1.05));
+      scale = clamp(pxPerM, 22, 120);
+    }
+
+    // ===== Loop =====
+    let animId=null;
+    function loop(ts){
+      if(!running){ cancelAnimationFrame(animId); return; }
+      if(lastTs==null) lastTs = ts;
+      const rawDt = (ts - lastTs)/1000;
+      const dt = Math.min(0.05, rawDt) * speedFactor; // control viteză/slow-mo
+      lastTs = ts;
+      // avansează timpul până la oprire
+      const tNext = Math.min(t + dt, stopInfo.tStop);
+      t = tNext;
+      const state = kinematicsAt(t, params);
+      drawFrame(state);
+      updateSummary(state);
+      if(t >= stopInfo.tStop - 1e-9 || !isFinite(stopInfo.tStop)){
+        running = false; // s-a oprit (sau nu se va opri)
+      }
+      animId = requestAnimationFrame(loop);
+    }
+
+    // ===== Butoane =====
+    function reset(){
+      cancelAnimationFrame(animId);
+      lastTs = null; t = 0; running=false; paused=false; speedFactor = 1; speedBtn.textContent = '⏩ 1×';
+      params = readParams();
+      stopInfo = analyticStop(params);
+      autoScaleForStop();
+      const state0 = kinematicsAt(0, params);
+      drawFrame(state0); updateSummary(state0); updateAnalysisPanels();
+    }
+
+    startBtn.addEventListener('click', ()=>{
+      params = readParams();
+      stopInfo = analyticStop(params);
+      autoScaleForStop(); updateAnalysisPanels();
+      if(stopInfo.status==='invalid_a' || stopInfo.status==='no_motion'){
+        // doar redesenare
+        const state0 = kinematicsAt(0, params);
+        drawFrame(state0); updateSummary(state0);
+        return;
+      }
+      if(!running){ running = true; lastTs = null; requestAnimationFrame(loop); }
+    });
+
+    pauseBtn.addEventListener('click', ()=>{
+      if(!running){ return; }
+      paused = !paused;
+      if(paused){ running=false; pauseBtn.textContent='Continuă'; } else { running=true; pauseBtn.textContent='Pauză'; lastTs=null; requestAnimationFrame(loop);} 
+    });
+
+    resetBtn.addEventListener('click', reset);
+
+    // Slow-mo (¼×)
+    slowBtn.addEventListener('click', ()=>{
+      speedFactor = (speedFactor === 0.25) ? 1 : 0.25;
+      slowBtn.textContent = speedFactor === 0.25 ? '🐢 Slow-mo (¼×)' : '🐢 Slow-mo';
+    });
+
+    // Buton de ciclat viteza 0.5× → 1× → 2×
+    const speeds = [0.5, 1, 2];
+    let speedIdx = 1;
+    speedBtn.addEventListener('click', ()=>{
+      speedIdx = (speedIdx + 1) % speeds.length;
+      speedFactor = speeds[speedIdx];
+      speedBtn.textContent = `⏩ ${speeds[speedIdx]}×`;
+    });
+
+    // ===== Theme toggle (Light/Dark) =====
+    const themeToggle = document.getElementById('themeToggle');
+    function setTheme(mode){
+      document.documentElement.setAttribute('data-theme', mode);
+      try{ localStorage.setItem('sim-theme', mode); }catch(_){ }
+    }
+    function initTheme(){
+      const saved = (()=>{ try{ return localStorage.getItem('sim-theme'); }catch(_){ return null; } })();
+      if(saved){ setTheme(saved); return; }
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
+    }
+    themeToggle.addEventListener('click', ()=>{
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      setTheme(cur === 'light' ? 'dark' : 'light');
+      // redesenăm ca să actualizăm culorile planului pe canvas
+      const state = kinematicsAt(t, params); drawFrame(state);
+    });
+
+    // ===== Inițializare =====
+    initTheme();
+    reset();
+  </script>
+</body>
+</html>
